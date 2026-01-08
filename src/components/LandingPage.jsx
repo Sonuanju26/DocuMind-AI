@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Sparkles, Download, LogIn, UserPlus } from 'lucide-react';
+import { FileText, Sparkles, ArrowRight, LogIn, UserPlus, Shield, Zap, Lock } from 'lucide-react';
 
 const LandingPage = ({ onGetStarted, onLoginClick, onSignupClick }) => {
   return (
@@ -48,8 +48,8 @@ const LandingPage = ({ onGetStarted, onLoginClick, onSignupClick }) => {
           </h1>
           
           <p className="text-xl text-gray-300 mb-12 max-w-2xl mx-auto">
-            Download once, use forever. AI-powered document summarization that works completely offline. 
-            Your data never leaves your device.
+            AI-powered document summarization that works completely offline. 
+            Your data never leaves your device. No installation required.
           </p>
 
           <div className="flex gap-4 justify-center flex-wrap">
@@ -57,32 +57,92 @@ const LandingPage = ({ onGetStarted, onLoginClick, onSignupClick }) => {
               onClick={onGetStarted}
               className="px-8 py-4 bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-bold rounded-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-2 text-lg"
             >
-              <Download className="w-5 h-5" />
-              Download Now - Free
+              Get Started Free
+              <ArrowRight className="w-5 h-5" />
             </button>
-            <button className="px-8 py-4 bg-white/10 backdrop-blur-md text-white font-semibold rounded-xl hover:bg-white/20 transition border border-white/20">
-              Learn More
-            </button>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="mt-12 flex flex-wrap justify-center gap-8 text-white">
+            <div className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-green-400" />
+              <span className="text-sm">100% Secure</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-yellow-400" />
+              <span className="text-sm">Lightning Fast</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Lock className="w-5 h-5 text-blue-400" />
+              <span className="text-sm">Private & Offline</span>
+            </div>
           </div>
         </div>
 
         {/* Features Grid */}
         <div className="max-w-6xl mx-auto mt-24 grid md:grid-cols-3 gap-8">
           {[
-            { icon: FileText, title: "All File Types", desc: "PDF, Word, Excel, Images, PPT - we handle it all" },
-            { icon: Sparkles, title: "AI-Powered", desc: "Advanced AI models running locally on your device" },
-            { icon: Download, title: "100% Offline", desc: "No internet needed. Complete privacy guaranteed" }
+            { 
+              icon: FileText, 
+              title: "All File Types", 
+              desc: "PDF, Word, Excel, Images, PowerPoint - we handle it all with automatic validation"
+            },
+            { 
+              icon: Sparkles, 
+              title: "AI-Powered", 
+              desc: "Advanced AI models provide intelligent summaries tailored to your needs"
+            },
+            { 
+              icon: Shield, 
+              title: "100% Offline", 
+              desc: "No internet needed. Complete privacy guaranteed. Your files never leave your browser"
+            }
           ].map((feature, i) => (
             <div key={i} className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 hover:bg-white/15 transition">
               <div className="bg-gradient-to-br from-yellow-400 to-orange-500 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
                 <feature.icon className="w-6 h-6 text-white" />
               </div>
               <h3 className="text-white font-bold text-lg mb-2">{feature.title}</h3>
-              <p className="text-gray-300">{feature.desc}</p>
+              <p className="text-gray-300 text-sm">{feature.desc}</p>
             </div>
           ))}
         </div>
+
+        {/* How It Works */}
+        <div className="max-w-4xl mx-auto mt-24">
+          <h2 className="text-3xl font-bold text-white text-center mb-12">How It Works</h2>
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              { step: "1", title: "Upload Files", desc: "Drag and drop or select multiple documents" },
+              { step: "2", title: "Customize", desc: "Choose summary length, style, and add instructions" },
+              { step: "3", title: "Get Summary", desc: "Receive instant AI-generated insights" }
+            ].map((item, i) => (
+              <div key={i} className="text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4">
+                  {item.step}
+                </div>
+                <h3 className="text-white font-semibold text-lg mb-2">{item.title}</h3>
+                <p className="text-gray-400 text-sm">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
+
+      {/* Footer */}
+      <footer className="border-t border-white/10 py-8">
+        <div className="max-w-6xl mx-auto px-6 text-center">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-2 rounded-xl">
+              <FileText className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-white font-bold text-lg">DocuMind AI</span>
+          </div>
+          <p className="text-gray-400 text-sm">
+            © 2024 DocuMind AI. Secure, Private, Intelligent Document Summarization.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 };

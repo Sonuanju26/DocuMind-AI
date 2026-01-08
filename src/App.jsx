@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import LandingPage from './components/LandingPage';
 import AuthModal from './components/AuthModal';
 import Dashboard from './components/Dashboard';
+import PinSetupModal from './components/PinSetupModal';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('landing');
   const [authType, setAuthType] = useState('signup');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showPinSetup, setShowPinSetup] = useState(false);
+  const [pendingUser, setPendingUser] = useState(null);
 
   const handleGetStarted = () => {
     setAuthType('signup');
@@ -25,6 +28,25 @@ function App() {
 
   const handleAuthSuccess = () => {
     setIsAuthenticated(true);
+    if (!showPinSetup) {
+      setCurrentPage('dashboard');
+    }
+  };
+
+  const handlePinSetup = (userData) => {
+    setPendingUser(userData);
+    setShowPinSetup(true);
+  };
+
+  const handlePinSetupComplete = () => {
+    setShowPinSetup(false);
+    setPendingUser(null);
+    setCurrentPage('dashboard');
+  };
+
+  const handleSkipPinSetup = () => {
+    setShowPinSetup(false);
+    setPendingUser(null);
     setCurrentPage('dashboard');
   };
 
@@ -57,6 +79,15 @@ function App() {
           onClose={() => setCurrentPage('landing')}
           onSuccess={handleAuthSuccess}
           onToggleType={handleToggleAuthType}
+          onPinSetup={handlePinSetup}
+        />
+      )}
+
+      {showPinSetup && pendingUser && (
+        <PinSetupModal
+          user={pendingUser}
+          onClose={handleSkipPinSetup}
+          onSuccess={handlePinSetupComplete}
         />
       )}
       
