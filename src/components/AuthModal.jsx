@@ -3,7 +3,8 @@ import { FileText, X, Mail, Lock, User, Wifi, WifiOff } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
 import toast, { Toaster } from 'react-hot-toast';
-import { verifyOfflinePin, hasOfflineAccess, getOfflineUserInfo } from '../utils/offlineAuth';
+import { hasOfflineAccess, getOfflineUserInfo } from '../utils/offlineAuth';
+import { signupWithEmail, loginWithEmail, googleAuth, offlineLogin } from '../services/apiService';
 
 const AuthModal = ({ type, onClose, onSuccess, onToggleType, onPinSetup }) => {
   const [formData, setFormData] = useState({ name: '', email: '', password: '' });
@@ -14,25 +15,36 @@ const AuthModal = ({ type, onClose, onSuccess, onToggleType, onPinSetup }) => {
   const hasOffline = hasOfflineAccess();
   const offlineUser = hasOffline ? getOfflineUserInfo() : null;
 
-  const handleGoogleSuccess = (credentialResponse) => {
+  const handleGoogleSuccess = async (credentialResponse) => {
     try {
       const decoded = jwtDecode(credentialResponse.credential);
       console.log('Google User:', decoded);
       
+      setLoading(true);
+      
+      // Authenticate with backend
+      const response = await googleAuth(
+        credentialResponse.credential,
+        decoded.email,
+        decoded.name,
+        decoded.picture
+      );
       
       toast.success(`Welcome ${decoded.name}! 🎉`);
       
       const userData = {
-        name: decoded.name,
-        email: decoded.email,
-        picture: decoded.picture,
-        authMethod: 'google'
+        id: response.user.id,
+        name: response.user.name,
+        email: response.user.email,
+        picture: response.user.picture,
+        authMethod: 'google',
+        token: response.access_token
       };
       
       localStorage.setItem('user', JSON.stringify(userData));
       
-      // Ask to set up offline PIN
-      if (onPinSetup && !hasOfflineAccess()) {
+      // Ask to set up offline PIN if not already set
+      if (onPinSetup && !response.user.offline_enabled) {
         setTimeout(() => {
           onPinSetup(userData);
         }, 1500);
@@ -43,7 +55,9 @@ const AuthModal = ({ type, onClose, onSuccess, onToggleType, onPinSetup }) => {
       }, 1000);
     } catch (error) {
       console.error('Google login error:', error);
-      toast.error('Google login failed. Please try again.');
+      toast.error(error.message || 'Google login failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -51,23 +65,60 @@ const AuthModal = ({ type, onClose, onSuccess, onToggleType, onPinSetup }) => {
     toast.error('Google login failed. Please try again.');
   };
 
-  const handleOfflinePinLogin = () => {
+  const handleOfflinePinLogin = async () => {
     if (!offlinePin) {
       toast.error('Please enter your PIN');
       return;
     }
 
-    const user = verifyOfflinePin(offlinePin);
-    
-    if (user) {
-      toast.success(`Welcome back! 🔓`);
-      localStorage.setItem('user', JSON.stringify(user));
-      setTimeout(() => {
-        onSuccess();
-      }, 1000);
-    } else {
-      toast.error('Incorrect PIN. Please try again.');
-      setOfflinePin('');
+    if (!offlineUser) {
+      toast.error('No offline user found');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Try backend first (if online)
+      try {
+        const response = await offlineLogin(offlineUser.email, offlinePin);
+        
+        const userData = {
+          id: response.user.id,
+          name: response.user.name,
+          email: response.user.email,
+          picture: response.user.picture,
+          authMethod: 'offline',
+          token: response.access_token
+        };
+        
+        localStorage.setItem('user', JSON.stringify(userData));
+        toast.success('Welcome back! 🔓');
+        
+        setTimeout(() => {
+          onSuccess();
+        }, 1000);
+      } catch (backendError) {
+        // If backend fails, try local verification
+        const { verifyOfflinePin } = await import('../utils/offlineAuth');
+        const localUser = verifyOfflinePin(offlinePin);
+        
+        if (localUser) {
+          localStorage.setItem('user', JSON.stringify(localUser));
+          toast.success('Welcome back! 🔓 (Offline mode)');
+          setTimeout(() => {
+            onSuccess();
+          }, 1000);
+        } else {
+          toast.error('Incorrect PIN. Please try again.');
+          setOfflinePin('');
+        }
+      }
+    } catch (error) {
+      console.error('Offline login error:', error);
+      toast.error('Login failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -84,12 +135,20 @@ const AuthModal = ({ type, onClose, onSuccess, onToggleType, onPinSetup }) => {
     setLoading(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      let response;
+      
+      if (type === 'signup') {
+        response = await signupWithEmail(formData.name, formData.email, formData.password);
+      } else {
+        response = await loginWithEmail(formData.email, formData.password);
+      }
       
       const userData = {
+        id: response.user?.id,
         name: formData.name || formData.email.split('@')[0],
         email: formData.email,
-        authMethod: 'email'
+        authMethod: 'email',
+        token: response.access_token
       };
       
       localStorage.setItem('user', JSON.stringify(userData));
@@ -107,7 +166,8 @@ const AuthModal = ({ type, onClose, onSuccess, onToggleType, onPinSetup }) => {
         onSuccess();
       }, 1000);
     } catch (error) {
-      toast.error('Authentication failed. Please try again.');
+      console.error('Authentication error:', error);
+      toast.error(error.message || 'Authentication failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -188,15 +248,21 @@ const AuthModal = ({ type, onClose, onSuccess, onToggleType, onPinSetup }) => {
                   value={offlinePin}
                   onChange={(e) => setOfflinePin(e.target.value.replace(/\D/g, ''))}
                   onKeyPress={(e) => e.key === 'Enter' && handleOfflinePinLogin()}
+                  disabled={loading}
                 />
               </div>
 
               <button
                 onClick={handleOfflinePinLogin}
-                className="w-full py-3 bg-gradient-to-r from-blue-400 to-blue-600 text-white font-bold rounded-lg hover:shadow-lg transition"
+                disabled={loading}
+                className="w-full py-3 bg-gradient-to-r from-blue-400 to-blue-600 text-white font-bold rounded-lg hover:shadow-lg transition disabled:opacity-50"
               >
-                <WifiOff className="w-5 h-5 inline mr-2" />
-                Login Offline
+                {loading ? 'Processing...' : (
+                  <>
+                    <WifiOff className="w-5 h-5 inline mr-2" />
+                    Login Offline
+                  </>
+                )}
               </button>
             </div>
           ) : (
@@ -237,6 +303,7 @@ const AuthModal = ({ type, onClose, onSuccess, onToggleType, onPinSetup }) => {
                       placeholder="John Doe"
                       value={formData.name}
                       onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      disabled={loading}
                     />
                   </div>
                 )}
@@ -252,6 +319,7 @@ const AuthModal = ({ type, onClose, onSuccess, onToggleType, onPinSetup }) => {
                     placeholder="you@example.com"
                     value={formData.email}
                     onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    disabled={loading}
                   />
                 </div>
                 
@@ -266,6 +334,7 @@ const AuthModal = ({ type, onClose, onSuccess, onToggleType, onPinSetup }) => {
                     placeholder="••••••••"
                     value={formData.password}
                     onChange={(e) => setFormData({...formData, password: e.target.value})}
+                    disabled={loading}
                   />
                 </div>
 
@@ -283,6 +352,7 @@ const AuthModal = ({ type, onClose, onSuccess, onToggleType, onPinSetup }) => {
                 <button 
                   onClick={onToggleType}
                   className="text-orange-500 font-semibold hover:underline"
+                  disabled={loading}
                 >
                   {type === 'login' ? 'Sign Up' : 'Login'}
                 </button>

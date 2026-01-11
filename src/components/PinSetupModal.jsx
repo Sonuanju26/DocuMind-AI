@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { Lock, X, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { saveOfflineUser } from '../utils/offlineAuth';
+import { setupOfflinePin } from '../services/apiService';
 
 const PinSetupModal = ({ user, onClose, onSuccess }) => {
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (pin.length < 4) {
       toast.error('PIN must be at least 4 digits');
       return;
@@ -18,9 +20,23 @@ const PinSetupModal = ({ user, onClose, onSuccess }) => {
       return;
     }
 
-    saveOfflineUser(user, pin);
-    toast.success('Offline access enabled! 🔒');
-    onSuccess();
+    setLoading(true);
+
+    try {
+      // Save to backend
+      await setupOfflinePin(user.email, pin);
+      
+      // Save locally
+      saveOfflineUser(user, pin);
+      
+      toast.success('Offline access enabled! 🔒');
+      onSuccess();
+    } catch (error) {
+      console.error('PIN setup error:', error);
+      toast.error(error.message || 'Failed to setup offline PIN');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -54,6 +70,7 @@ const PinSetupModal = ({ user, onClose, onSuccess }) => {
               placeholder="••••"
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+              disabled={loading}
             />
           </div>
 
@@ -70,6 +87,7 @@ const PinSetupModal = ({ user, onClose, onSuccess }) => {
               placeholder="••••"
               value={confirmPin}
               onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
+              disabled={loading}
             />
           </div>
 
@@ -82,14 +100,15 @@ const PinSetupModal = ({ user, onClose, onSuccess }) => {
 
           <button
             onClick={handleSubmit}
-            disabled={!pin || !confirmPin}
+            disabled={!pin || !confirmPin || loading}
             className="w-full py-3 bg-gradient-to-r from-green-400 to-blue-500 text-white font-bold rounded-lg hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Enable Offline Access
+            {loading ? 'Setting up...' : 'Enable Offline Access'}
           </button>
 
           <button
             onClick={onClose}
+            disabled={loading}
             className="w-full py-2 text-gray-600 hover:text-gray-800 text-sm"
           >
             Skip for now
